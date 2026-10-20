@@ -1,5 +1,6 @@
 """主机端 TCP 服务，持有唯一权威对局状态。"""
 
+import logging
 import time
 
 from PyQt5.QtCore import QObject, QTimer, pyqtSignal
@@ -11,6 +12,8 @@ from .protocol import (
     PROTOCOL_VERSION, ProtocolError, clean_chat_text, clean_name,
     decode_message, encode_message,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class GameServer(QObject):
@@ -41,6 +44,7 @@ class GameServer(QObject):
         self.last_seen = time.monotonic()
         self.error_count = 0
         self.closing = False
+        self.session_over = False
         self.heartbeat = QTimer(self)
         self.heartbeat.timeout.connect(self._heartbeat)
         self.heartbeat.start(5000)
@@ -48,8 +52,10 @@ class GameServer(QObject):
     def start(self):
         ok = self.server.listen(QHostAddress.AnyIPv4, self.port)
         if not ok:
+            logger.warning("房间 %s 监听端口 %s 失败", self.room_name, self.port)
             return False, self.server.errorString()
         self.port = self.server.serverPort()
+        logger.info("房间 %s 已监听端口 %s", self.room_name, self.port)
         return True, ""
 
     def stop(self):
@@ -69,14 +75,16 @@ class GameServer(QObject):
             socket.deleteLater()
         self.client_ready = False
         self.server.close()
+        logger.info("房间 %s 已关闭", self.room_name)
 
     def _on_new_connection(self):
         while self.server.hasPendingConnections():
             socket = self.server.nextPendingConnection()
-            if self.socket is not None:
+            if self.session_over or self.socket is not None:
+                reason = "对局已结束" if self.session_over else "房间已有玩家"
                 try:
                     socket.write(encode_message(
-                        {"type": "bye", "reason": "房间已有玩家"}
+                        {"type": "bye", "reason": reason}
                     ))
                     socket.flush()
                 except Exception:
@@ -137,6 +145,7 @@ class GameServer(QObject):
                 "guest_color": self.guest_color,
                 "state": state,
             })
+            logger.info("客机 %s 加入房间 %s", name, self.room_name)
             self.client_joined.emit({"name": name, "state": state})
             return
 
@@ -270,8 +279,13 @@ class GameServer(QObject):
         self._send({"type": "state", "state": state})
         self.state_changed.emit(state)
         if self.game.phase == Phase.FINISHED:
+            self.session_over = True
             result = self._result()
             self._send(dict(result, type="result"))
+            logger.info(
+                "对局结束：%s（%s）", self.game.winner,
+                self.game.result_reason,
+            )
             self.game_finished.emit(result)
 
     def _result(self):
@@ -295,6 +309,7 @@ class GameServer(QObject):
         self._send({"type": "state", "state": self.game.snapshot()})
 
     def _send_error(self, text):
+        logger.warning("协议错误：%s", text)
         self._send({"type": "error", "message": text})
         self.error_count += 1
         if self.error_count > 5:
@@ -329,6 +344,8 @@ class GameServer(QObject):
         self.client_ready = False
         self.guest_name = ""
         self.error_count = 0
+        if was_ready:
+            self.session_over = True
         try:
             socket.write(encode_message({"type": "bye", "reason": reason}))
             socket.flush()
@@ -348,4 +365,6 @@ class GameServer(QObject):
         self.client_ready = False
         self.guest_name = ""
         if was_ready and not self.closing:
+            self.session_over = True
+            logger.info("客机断开：%s", self.room_name)
             self.client_left.emit("对手已断开")

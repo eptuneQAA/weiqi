@@ -43,8 +43,8 @@ class BoardTest(unittest.TestCase):
         self.assertIn("超出", err)
 
     def test_star_points(self):
-        self.assertEqual(len(Board(9).star_points()), 9)
-        self.assertEqual(len(Board(13).star_points()), 9)
+        self.assertEqual(len(Board(9).star_points()), 5)
+        self.assertEqual(len(Board(13).star_points()), 5)
         self.assertEqual(len(Board(19).star_points()), 9)
 
 

@@ -104,5 +104,9 @@ class Board:
         return tuple(tuple(row) for row in self.grid)
 
     def star_points(self):
-        coords = STAR_POINTS[self.size]
+        if self.size == 9:
+            return [(2, 2), (2, 6), (4, 4), (6, 2), (6, 6)]
+        if self.size == 13:
+            return [(3, 3), (3, 9), (6, 6), (9, 3), (9, 9)]
+        coords = STAR_POINTS[19]
         return [(x, y) for y in coords for x in coords]

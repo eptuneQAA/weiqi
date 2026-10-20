@@ -1,12 +1,15 @@
 """UDP 房间广播与发现。"""
 
 import json
+import logging
 import time
 
 from PyQt5.QtCore import QObject, QTimer, pyqtSignal
 from PyQt5.QtNetwork import QAbstractSocket, QHostAddress, QUdpSocket
 
 from .protocol import DISCOVERY_MAGIC, DISCOVERY_PORT, PROTOCOL_VERSION
+
+logger = logging.getLogger(__name__)
 
 
 class RoomBroadcaster(QObject):
@@ -61,6 +64,8 @@ class RoomListener(QObject):
         ok = self.socket.bind(QHostAddress.AnyIPv4, DISCOVERY_PORT, flags)
         if ok:
             self.timer.start(2000)
+        else:
+            logger.warning("无法监听 UDP 发现端口 %s", DISCOVERY_PORT)
         return ok
 
     def stop(self):

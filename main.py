@@ -1,3 +1,4 @@
+import logging
 import sys
 
 from PyQt5.QtCore import Qt
@@ -7,6 +8,10 @@ from weiqi.ui.main_window import MainWindow
 
 
 def main():
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+    )
     QApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)
     QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps, True)
     discovery_enabled = "--no-discovery" not in sys.argv

@@ -1,5 +1,6 @@
 """客机端 TCP 连接、心跳与消息分发。"""
 
+import logging
 import time
 
 from PyQt5.QtCore import QObject, QTimer, pyqtSignal
@@ -9,6 +10,8 @@ from .protocol import (
     PROTOCOL_VERSION, ProtocolError, clean_name, decode_message,
     encode_message,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class GameClient(QObject):
@@ -49,6 +52,7 @@ class GameClient(QObject):
         self.last_seen = time.monotonic()
         self.notified = False
         self.heartbeat.start(5000)
+        logger.info("已连接主机 %s:%s", self.host, self.port)
         self._send({
             "type": "hello",
             "version": PROTOCOL_VERSION,
@@ -75,6 +79,7 @@ class GameClient(QObject):
             if int(message.get("version", 0)) != PROTOCOL_VERSION:
                 self._fail("协议版本不一致")
                 return
+            logger.info("已加入房间 %s", message.get("room", ""))
             self.welcome_received.emit(message)
         elif message_type == "state":
             state = message.get("state")
@@ -141,6 +146,7 @@ class GameClient(QObject):
             return
         self.notified = True
         self.heartbeat.stop()
+        logger.warning("连接结束：%s", reason)
         self.disconnected.emit(reason)
         self.close()
 
