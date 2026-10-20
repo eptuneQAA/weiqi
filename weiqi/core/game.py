@@ -178,8 +178,11 @@ class GameState:
                 ok, err = game.play(int(move["x"]), int(move["y"]))
                 if not ok:
                     raise ValueError("无法恢复棋局：" + err)
-        if data.get("dead_points"):
-            game.set_dead_points(data["dead_points"])
+        if (
+            data.get("phase") in (Phase.SCORING.value, Phase.FINISHED.value)
+            and game.phase == Phase.SCORING
+        ):
+            game.set_dead_points(data.get("dead_points", []))
         if data.get("phase") == Phase.FINISHED.value:
             if data.get("resigned_by") is not None:
                 game.resign(int(data["resigned_by"]))

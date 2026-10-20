@@ -100,9 +100,10 @@ class GameServer(QObject):
             socket.disconnected.connect(self._on_disconnected)
 
     def _on_ready_read(self):
-        if self.socket is None:
+        socket = self.sender()
+        if socket is not self.socket:
             return
-        self.buffer += bytes(self.socket.readAll())
+        self.buffer += bytes(socket.readAll())
         while b"\n" in self.buffer:
             line, self.buffer = self.buffer.split(b"\n", 1)
             if not line.strip():
@@ -277,8 +278,9 @@ class GameServer(QObject):
     def _after_change(self):
         state = self.game.snapshot()
         self._send({"type": "state", "state": state})
-        self.state_changed.emit(state)
-        if self.game.phase == Phase.FINISHED:
+        finished = self.game.phase == Phase.FINISHED
+        result = None
+        if finished:
             self.session_over = True
             result = self._result()
             self._send(dict(result, type="result"))
@@ -286,6 +288,8 @@ class GameServer(QObject):
                 "对局结束：%s（%s）", self.game.winner,
                 self.game.result_reason,
             )
+        self.state_changed.emit(state)
+        if finished:
             self.game_finished.emit(result)
 
     def _result(self):
@@ -357,10 +361,11 @@ class GameServer(QObject):
             self.client_left.emit(reason)
 
     def _on_disconnected(self):
-        if self.socket is None:
+        socket = self.sender()
+        if socket is not self.socket:
             return
-        self.socket.deleteLater()
         self.socket = None
+        socket.deleteLater()
         was_ready = self.client_ready
         self.client_ready = False
         self.guest_name = ""

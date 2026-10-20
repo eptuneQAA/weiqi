@@ -1,6 +1,7 @@
 import unittest
 
 from weiqi.core.board import BLACK, WHITE, Board
+from weiqi.core.game import GameState
 from weiqi.core.scoring import (
     auto_dead_groups, compute_score, score_text, toggle_group_dead,
 )
@@ -49,6 +50,29 @@ class ScoringTest(unittest.TestCase):
     def test_score_text(self):
         score = compute_score(self._walled_board(), set(), 7.5)
         self.assertEqual(score_text(score), "白胜 7.5 点")
+
+    def test_snapshot_preserves_explicit_dead_points(self):
+        game = GameState(9)
+        for index in range(9):
+            ok, err = game.play(1, index)
+            self.assertTrue(ok, err)
+            target = (8, index) if index < 8 else (0, 0)
+            ok, err = game.play(target[0], target[1])
+            self.assertTrue(ok, err)
+        game.pass_turn()
+        game.pass_turn()
+        self.assertEqual(game.phase.value, "scoring")
+        self.assertEqual(game.dead_points, {(0, 0)})
+        self.assertTrue(game.set_dead_points([]))
+        snapshot = game.snapshot()
+        restored = GameState.from_snapshot(snapshot)
+        self.assertEqual(restored.dead_points, set())
+        self.assertEqual(
+            restored.score["black_area"], game.score["black_area"]
+        )
+        self.assertEqual(
+            restored.score["white_area"], game.score["white_area"]
+        )
 
     def test_open_board_has_no_false_dead_groups(self):
         board = Board(9)

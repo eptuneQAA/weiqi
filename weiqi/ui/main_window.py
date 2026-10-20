@@ -310,16 +310,16 @@ class MainWindow(QMainWindow):
         self.client_connected = True
         self.chat.set_enabled(True)
         self.chat.add_system("已加入房间：{}".format(message.get("room", "")))
-        self.statusBar().showMessage("已加入房间，等待落子")
         self._update_ui()
+        self._refresh_status()
 
     def _on_client_joined(self, message):
         self.guest_joined = True
         name = message.get("name", "客机")
         self.chat.set_enabled(True)
         self.chat.add_system("{} 加入了房间".format(name))
-        self.statusBar().showMessage("对手已加入：{}".format(name))
         self._update_ui()
+        self._refresh_status()
 
     def _on_client_left(self, reason):
         self.guest_joined = False
@@ -352,6 +352,8 @@ class MainWindow(QMainWindow):
             self._stop_broadcaster()
             if not self.result_shown:
                 self._show_result_from_game()
+        else:
+            self._refresh_status()
 
     def _on_remote_finished(self, message):
         if self.result_shown:
@@ -408,6 +410,23 @@ class MainWindow(QMainWindow):
         if self.mode == MODE_GUEST:
             return self.client_connected
         return False
+
+    def _refresh_status(self):
+        if self.game.phase == Phase.PLAYING:
+            if (
+                self.mode == MODE_AI
+                and self.game.turn == self.ai_color
+            ):
+                self.statusBar().showMessage("AI 思考中…")
+            elif self._is_local_turn():
+                self.statusBar().showMessage("轮到你落子")
+            else:
+                self.statusBar().showMessage("等待对手落子")
+        elif self.game.phase == Phase.SCORING:
+            if self._can_mark_dead():
+                self.statusBar().showMessage("数子阶段：点击死子标记，确认后结束")
+            else:
+                self.statusBar().showMessage("等待主机确认数子")
 
     def _update_ui(self):
         phase = self.game.phase
@@ -573,6 +592,8 @@ class MainWindow(QMainWindow):
             self._update_ui()
             if self.game.turn == self.ai_color:
                 self._start_ai()
+            else:
+                self._refresh_status()
 
     def _confirm_score(self):
         if not self._can_mark_dead():
@@ -617,8 +638,7 @@ class MainWindow(QMainWindow):
             if not ok:
                 self.game.pass_turn()
         self._update_ui()
-        if self.game.phase == Phase.SCORING:
-            self.statusBar().showMessage("双方停一手，进入数子", 5000)
+        self._refresh_status()
 
     def _send_chat(self, text):
         if not text:
@@ -651,6 +671,7 @@ class MainWindow(QMainWindow):
         if self.result_shown:
             return
         self.result_shown = True
+        self.statusBar().showMessage("对局结束")
         if score:
             text = score_text(score)
             text += (
