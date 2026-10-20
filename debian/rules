@@ -1,0 +1,19 @@
+#!/usr/bin/make -f
+
+%:
+	dh $@
+
+override_dh_auto_build:
+	:
+
+override_dh_auto_test:
+	python3 -m unittest discover -s tests -v
+
+override_dh_auto_install:
+	install -d debian/weiqi/usr/lib/weiqi
+	cp -a main.py weiqi debian/weiqi/usr/lib/weiqi/
+	find debian/weiqi/usr/lib/weiqi -name '__pycache__' -type d -prune -exec rm -rf {} +
+	find debian/weiqi/usr/lib/weiqi -name '*.pyc' -delete
+	install -Dm755 debian/weiqi-launcher debian/weiqi/usr/games/weiqi
+	install -Dm644 debian/weiqi.desktop debian/weiqi/usr/share/applications/weiqi.desktop
+	install -Dm644 debian/weiqi.svg debian/weiqi/usr/share/icons/hicolor/scalable/apps/weiqi.svg

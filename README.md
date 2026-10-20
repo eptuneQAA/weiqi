@@ -14,6 +14,33 @@ python3 main.py
 pip3 install -r requirements.txt
 ```
 
+## 安装包（deb）
+
+构建安装包：
+
+```bash
+cd /home/UOS/weiqi
+./build_deb.sh
+```
+
+产物为 `dist/weiqi_1.0.0_all.deb`。安装（会自动处理 PyQt5 依赖）：
+
+```bash
+sudo apt install ./dist/weiqi_1.0.0_all.deb
+```
+
+安装后可从开始菜单点击“围棋”启动，或在终端执行（程序位于 `/usr/games/weiqi`，UOS 默认 PATH 已包含该目录）：
+
+```bash
+weiqi
+```
+
+卸载：
+
+```bash
+sudo apt remove weiqi
+```
+
 ## 人机对战
 
 菜单“对局 -> 人机对战”，选择 9/13/19 路、AI 难度和执子颜色。

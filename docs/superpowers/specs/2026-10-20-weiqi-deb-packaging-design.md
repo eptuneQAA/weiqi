@@ -40,7 +40,7 @@
 ## 3. 安装布局
 
 ```
-/usr/bin/weiqi
+/usr/games/weiqi
 /usr/lib/weiqi/main.py
 /usr/lib/weiqi/weiqi/...
 /usr/share/applications/weiqi.desktop
@@ -51,7 +51,8 @@
 /usr/share/doc/weiqi/copyright
 ```
 
-- `/usr/bin/weiqi` 为启动脚本，内容为 `exec /usr/bin/python3 /usr/lib/weiqi/main.py "$@"`。
+- `/usr/games/weiqi` 为启动脚本，根据自身路径解析前缀并执行 `/usr/bin/python3 <prefix>/lib/weiqi/main.py "$@"`。
+- 选择 `/usr/games` 是为了符合 Debian games 分类，避免 `lintian` 的 `package-section-games-but-contains-no-game` 错误；UOS/Debian 默认 PATH 包含 `/usr/games`，终端直接输入 `weiqi` 即可启动。
 - `/usr/lib/weiqi` 存放 `main.py` 与 `weiqi` 包，不安装测试和文档源码。
 - 安装时不生成 Python 字节码（构建时清理 `__pycache__` 与 `.pyc`）。
 
@@ -94,7 +95,7 @@ GenericName=围棋游戏
 GenericName[en]=Go Game
 Comment=人机对战、局域网对战与聊天
 Comment[en]=Play Go against AI or over LAN with chat
-Exec=weiqi
+Exec=/usr/games/weiqi
 Icon=weiqi
 Terminal=false
 Categories=Game;BoardGame;

@@ -1,0 +1,16 @@
+Source: weiqi
+Section: games
+Priority: optional
+Maintainer: xiyucheng <xiyucheng@uniontech.com>
+Build-Depends: debhelper-compat (= 13), python3 (>= 3.7), python3-pyqt5 (>= 5.11)
+Standards-Version: 4.5.1
+Rules-Requires-Root: no
+
+Package: weiqi
+Architecture: all
+Depends: ${misc:Depends}, python3 (>= 3.7), python3-pyqt5 (>= 5.11)
+Description: Go game with built-in AI and LAN play
+ Weiqi (围棋) is a desktop Go game featuring a built-in AI opponent,
+ local two-player LAN games with automatic room discovery, and
+ in-game text chat. It supports 9x9, 13x13 and 19x19 boards with
+ Chinese area scoring, ko rules, passing, resignation and scoring.

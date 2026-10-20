@@ -1,0 +1,8 @@
+#!/bin/sh
+
+SELF=$(readlink -f "$0")
+PREFIX=$(dirname "$(dirname "$SELF")")
+PYTHONPATH="$PREFIX/lib/weiqi${PYTHONPATH:+:$PYTHONPATH}"
+export PYTHONPATH
+
+exec /usr/bin/python3 "$PREFIX/lib/weiqi/main.py" "$@"

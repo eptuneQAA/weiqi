@@ -1,0 +1,15 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=围棋
+Name[en]=Weiqi
+GenericName=围棋游戏
+GenericName[en]=Go Game
+Comment=人机对战、局域网对战与聊天
+Comment[en]=Play Go against AI or over LAN with chat
+Exec=/usr/games/weiqi
+Icon=weiqi
+Terminal=false
+Categories=Game;BoardGame;
+Keywords=围棋;Go;Weiqi;
+StartupNotify=true

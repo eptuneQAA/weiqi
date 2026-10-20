@@ -1,0 +1,41 @@
+.TH WEIQI 1 "2026-10-20" "weiqi 1.0.0" "用户命令"
+.SH NAME
+weiqi \- 围棋人机与局域网对战游戏
+.SH SYNOPSIS
+.B weiqi
+[\fB\-\-no\-discovery\fR]
+.SH DESCRIPTION
+.B weiqi
+是一款桌面围棋程序，支持 9 路、13 路、19 路棋盘，内置三档难度的 AI，
+并支持局域网双人对战、UDP 房间自动发现和房间内文字聊天。
+.PP
+规则采用中国规则数子，贴目 7.5，包含提子、禁入点、位置超级劫、停一手、
+认输和终局数子。
+.SH OPTIONS
+.TP
+.B \-\-no\-discovery
+关闭 UDP 房间自动发现。同一台机器同时运行多个实例测试联机时使用，
+避免 UDP 发现端口冲突。关闭后仍可手动输入主机 IP 和端口加入房间。
+.SH NETWORKING
+主机从“对局 -> 创建局域网房间”开始，默认监听 TCP 端口 45679。
+客机从“对局 -> 加入局域网房间”选择自动发现的房间，或手动输入主机 IP。
+UDP 房间发现端口为 45678。若防火墙拦截广播，请使用手动 IP 连接。
+.SH FILES
+.TP
+.I /usr/games/weiqi
+启动脚本。
+.TP
+.I /usr/lib/weiqi/main.py
+程序入口。
+.TP
+.I /usr/share/applications/weiqi.desktop
+桌面菜单入口。
+.SH EXAMPLES
+.TP
+启动程序：
+.B weiqi
+.TP
+关闭自动发现启动：
+.B weiqi \-\-no\-discovery
+.SH SEE ALSO
+.BR python3 (1)

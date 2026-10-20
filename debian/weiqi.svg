@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="wood" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#e8c07a"/>
+      <stop offset="1" stop-color="#bd8739"/>
+    </linearGradient>
+    <radialGradient id="blackStone" cx="35%" cy="30%" r="75%">
+      <stop offset="0" stop-color="#7a7a7a"/>
+      <stop offset="0.45" stop-color="#262626"/>
+      <stop offset="1" stop-color="#050505"/>
+    </radialGradient>
+    <radialGradient id="whiteStone" cx="35%" cy="30%" r="75%">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="0.7" stop-color="#f2f2ea"/>
+      <stop offset="1" stop-color="#c7c7bd"/>
+    </radialGradient>
+  </defs>
+  <rect x="40" y="40" width="432" height="432" rx="84" fill="url(#wood)" stroke="#8d5f24" stroke-width="6"/>
+  <g stroke="#4a3218" stroke-width="4" opacity="0.85">
+    <line x1="112" y1="112" x2="400" y2="112"/>
+    <line x1="112" y1="148" x2="400" y2="148"/>
+    <line x1="112" y1="184" x2="400" y2="184"/>
+    <line x1="112" y1="220" x2="400" y2="220"/>
+    <line x1="112" y1="256" x2="400" y2="256"/>
+    <line x1="112" y1="292" x2="400" y2="292"/>
+    <line x1="112" y1="328" x2="400" y2="328"/>
+    <line x1="112" y1="364" x2="400" y2="364"/>
+    <line x1="112" y1="400" x2="400" y2="400"/>
+    <line x1="112" y1="112" x2="112" y2="400"/>
+    <line x1="148" y1="112" x2="148" y2="400"/>
+    <line x1="184" y1="112" x2="184" y2="400"/>
+    <line x1="220" y1="112" x2="220" y2="400"/>
+    <line x1="256" y1="112" x2="256" y2="400"/>
+    <line x1="292" y1="112" x2="292" y2="400"/>
+    <line x1="328" y1="112" x2="328" y2="400"/>
+    <line x1="364" y1="112" x2="364" y2="400"/>
+    <line x1="400" y1="112" x2="400" y2="400"/>
+  </g>
+  <g fill="#4a3218">
+    <circle cx="184" cy="184" r="5"/>
+    <circle cx="328" cy="184" r="5"/>
+    <circle cx="256" cy="256" r="5"/>
+    <circle cx="184" cy="328" r="5"/>
+    <circle cx="328" cy="328" r="5"/>
+  </g>
+  <circle cx="188" cy="190" r="54" fill="#000000" opacity="0.28"/>
+  <circle cx="332" cy="334" r="54" fill="#000000" opacity="0.28"/>
+  <circle cx="184" cy="184" r="54" fill="url(#blackStone)"/>
+  <circle cx="328" cy="328" r="54" fill="url(#whiteStone)" stroke="#bdbdb5" stroke-width="2"/>
+</svg>
