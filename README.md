@@ -1,6 +1,6 @@
 # 围棋
 
-桌面围棋软件，支持人机对战、局域网双人对战和房间内文字聊天。
+桌面围棋软件，支持人机对战、局域网双人对战、房间内文字聊天和图文新手帮助。
 
 ## 运行
 
@@ -23,10 +23,10 @@ cd /home/UOS/weiqi
 ./build_deb.sh
 ```
 
-产物为 `dist/weiqi_1.0.0_all.deb`。安装（会自动处理 PyQt5 依赖）：
+产物为 `dist/weiqi_1.0.1_all.deb`。安装（会自动处理 PyQt5 依赖）：
 
 ```bash
-sudo apt install ./dist/weiqi_1.0.0_all.deb
+sudo apt install ./dist/weiqi_1.0.1_all.deb
 ```
 
 安装后可从开始菜单点击“围棋”启动，或在终端执行（程序位于 `/usr/games/weiqi`，UOS 默认 PATH 已包含该目录）：
@@ -40,6 +40,12 @@ weiqi
 ```bash
 sudo apt remove weiqi
 ```
+
+## 新手帮助
+
+菜单“帮助 -> 新手帮助”或按 F1 打开图文帮助中心，包含快速开始、气与提子、
+禁入点与劫、眼与活棋、胜负与数子、操作说明、人机/联机指南、常见问题和术语表。
+“帮助 -> 规则说明”可直接定位到棋盘与落子章节。
 
 ## 人机对战
 

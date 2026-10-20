@@ -7,7 +7,7 @@
 
 ## 1. 目标
 
-为现有围棋程序生成标准 Debian 二进制安装包 `weiqi_1.0.0_all.deb`，满足：
+为现有围棋程序生成标准 Debian 二进制安装包 `weiqi_1.0.1_all.deb`，满足：
 
 1. 双击或用 apt 安装，自动安装 `python3-pyqt5` 依赖。
 2. 安装后可从开始菜单点击“围棋”启动，也可在终端执行 `weiqi`。
@@ -23,7 +23,7 @@
 | --- | --- |
 | 源码包名 | `weiqi` |
 | 二进制包名 | `weiqi` |
-| 版本 | `1.0.0`（Debian native） |
+| 版本 | `1.0.1`（Debian native） |
 | 架构 | `all` |
 | 分类 | `games` |
 | 优先级 | `optional` |
@@ -119,16 +119,16 @@ man 手册 `weiqi.1` 记录命令用法、`--no-discovery` 选项、联机端口
 6. 输出安装包路径。
 
 构建命令：`./build_deb.sh`。
-产物：`dist/weiqi_1.0.0_all.deb`。
+产物：`dist/weiqi_1.0.1_all.deb`。
 
 ## 6. 安装、升级与卸载
 
 ```bash
 # 安装（自动处理依赖）
-sudo apt install ./dist/weiqi_1.0.0_all.deb
+sudo apt install ./dist/weiqi_1.0.1_all.deb
 
 # 或手动安装
-sudo dpkg -i dist/weiqi_1.0.0_all.deb
+sudo dpkg -i dist/weiqi_1.0.1_all.deb
 sudo apt -f install
 
 # 启动
@@ -143,9 +143,9 @@ sudo apt remove weiqi
 
 ## 7. 质量验证
 
-1. `python3 -m unittest discover -s tests`：30 个测试全部通过。
+1. `python3 -m unittest discover -s tests`：34 个测试全部通过。
 2. `./build_deb.sh`：成功生成 `.deb`，退出码 0。
-3. `lintian dist/weiqi_1.0.0_all.deb`：无 error；warning 逐条评估。
+3. `lintian dist/weiqi_1.0.1_all.deb`：无 error；warning 逐条评估。
 4. `dpkg-deb -I`：检查包名、版本、架构、依赖。
 5. `dpkg-deb -c`：核对安装路径完整。
 6. `dpkg-deb -x` 解包到临时目录，执行：
@@ -164,7 +164,7 @@ sudo apt remove weiqi
 
 ## 9. 验收标准
 
-- 生成 `dist/weiqi_1.0.0_all.deb`，`lintian` 无 error。
+- 生成 `dist/weiqi_1.0.1_all.deb`，`lintian` 无 error。
 - 包内包含启动脚本、代码、桌面入口、图标、man 手册、README、changelog、copyright。
 - `Depends` 包含 `python3` 与 `python3-pyqt5`。
 - 解包后的程序可正常启动。

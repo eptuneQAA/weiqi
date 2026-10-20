@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from PyQt5.QtCore import QThread, pyqtSignal
-from PyQt5.QtGui import QFont
+from PyQt5.QtGui import QFont, QKeySequence
 from PyQt5.QtWidgets import (
     QAction, QDialog, QGridLayout, QHBoxLayout, QLabel, QMainWindow,
     QMessageBox, QPushButton, QVBoxLayout, QWidget,
@@ -19,6 +19,7 @@ from .chat_widget import ChatWidget
 from .dialogs import (
     HostGameDialog, JoinGameDialog, NewGameDialog, ResultDialog,
 )
+from .help_dialog import HelpDialog
 
 MODE_IDLE = "idle"
 MODE_AI = "ai"
@@ -143,8 +144,17 @@ class MainWindow(QMainWindow):
         quit_action.triggered.connect(self.close)
         game_menu.addAction(quit_action)
         help_menu = self.menuBar().addMenu("帮助")
+        help_action = QAction("新手帮助", self)
+        help_action.setShortcut(QKeySequence.HelpContents)
+        help_action.setStatusTip("打开图文新手帮助（F1）")
+        help_action.triggered.connect(
+            lambda _checked=False: self._show_help("quickstart")
+        )
+        help_menu.addAction(help_action)
         rules_action = QAction("规则说明", self)
-        rules_action.triggered.connect(self._show_rules)
+        rules_action.triggered.connect(
+            lambda _checked=False: self._show_help("board")
+        )
         help_menu.addAction(rules_action)
         about_action = QAction("关于", self)
         about_action.triggered.connect(self._show_about)
@@ -698,15 +708,9 @@ class MainWindow(QMainWindow):
     def _show_error(self, text):
         self.statusBar().showMessage(str(text), 5000)
 
-    def _show_rules(self):
-        QMessageBox.information(
-            self, "规则说明",
-            "采用中国规则数子，贴目 7.5。\n"
-            "禁止自杀，禁止重复局面（位置超级劫）。\n"
-            "双方连续停一手后进入数子阶段，"
-            "可点击棋组标记死子，确认后计算胜负。\n"
-            "局域网对战由主机校验落子；聊天消息仅当前房间可见。",
-        )
+    def _show_help(self, page_id="quickstart"):
+        dialog = HelpDialog(page_id, self)
+        dialog.exec_()
 
     def _show_about(self):
         QMessageBox.information(
