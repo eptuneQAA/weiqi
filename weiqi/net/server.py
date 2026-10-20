@@ -49,6 +49,7 @@ class GameServer(QObject):
         ok = self.server.listen(QHostAddress.AnyIPv4, self.port)
         if not ok:
             return False, self.server.errorString()
+        self.port = self.server.serverPort()
         return True, ""
 
     def stop(self):
