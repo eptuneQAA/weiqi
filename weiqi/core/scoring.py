@@ -96,7 +96,7 @@ def compute_score(board, dead_points, komi):
 
 
 def auto_dead_groups(board):
-    owner = compute_ownership(board, set())
+    original_owner = compute_ownership(board, set())
     dead = set()
     visited = set()
     for y in range(board.size):
@@ -106,9 +106,15 @@ def auto_dead_groups(board):
                 continue
             stones, liberties = board.group_and_liberties(x, y)
             visited |= stones
-            has_eye = any(owner[ly][lx] == color for lx, ly in liberties)
+            if len(stones) > 3:
+                continue
+            has_eye = any(
+                original_owner[ly][lx] == color for lx, ly in liberties
+            )
+            owner_without = compute_ownership(board, stones)
             all_opponent = bool(liberties) and all(
-                owner[ly][lx] == opponent(color) for lx, ly in liberties
+                owner_without[ly][lx] == opponent(color)
+                for lx, ly in liberties
             )
             if not has_eye and all_opponent:
                 dead |= stones
