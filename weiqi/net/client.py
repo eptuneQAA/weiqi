@@ -14,6 +14,19 @@ from .protocol import (
 logger = logging.getLogger(__name__)
 
 
+def _friendly_socket_error(message):
+    lower = message.lower()
+    if "refused" in lower:
+        return "连接被拒绝，请确认主机已创建房间且 IP、端口正确"
+    if "timed out" in lower or "timeout" in lower:
+        return "连接超时，请检查主机 IP 和网络"
+    if "unreachable" in lower:
+        return "无法访问主机，请检查网络连接"
+    if "not found" in lower or "unknown" in lower:
+        return "找不到主机，请检查 IP 地址"
+    return message
+
+
 class GameClient(QObject):
     welcome_received = pyqtSignal(dict)
     state_changed = pyqtSignal(dict)
@@ -134,7 +147,7 @@ class GameClient(QObject):
 
     def _on_socket_error(self, _error):
         if not self.closing:
-            self._fail(self.socket.errorString())
+            self._fail(_friendly_socket_error(self.socket.errorString()))
 
     def _on_disconnected(self):
         self.heartbeat.stop()

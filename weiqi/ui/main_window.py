@@ -168,10 +168,7 @@ class MainWindow(QMainWindow):
             self.client.close()
             self.client.deleteLater()
             self.client = None
-        if self.broadcaster is not None:
-            self.broadcaster.stop()
-            self.broadcaster.deleteLater()
-            self.broadcaster = None
+        self._stop_broadcaster()
         if self.listener is not None:
             self.listener.stop()
             self.listener.deleteLater()
@@ -179,6 +176,12 @@ class MainWindow(QMainWindow):
         self.guest_joined = False
         self.client_connected = False
         self.chat.set_enabled(False)
+
+    def _stop_broadcaster(self):
+        if self.broadcaster is not None:
+            self.broadcaster.stop()
+            self.broadcaster.deleteLater()
+            self.broadcaster = None
 
     def _start_ai_game(self, size, difficulty, color):
         self._stop_session()
@@ -320,6 +323,7 @@ class MainWindow(QMainWindow):
 
     def _on_client_left(self, reason):
         self.guest_joined = False
+        self._stop_broadcaster()
         self.chat.set_enabled(False)
         self.chat.add_system(reason)
         self.statusBar().showMessage(reason)
@@ -344,8 +348,10 @@ class MainWindow(QMainWindow):
             self._show_error("同步棋局失败：" + str(exc))
             return
         self._update_ui()
-        if self.game.phase == Phase.FINISHED and not self.result_shown:
-            self._show_result_from_game()
+        if self.game.phase == Phase.FINISHED:
+            self._stop_broadcaster()
+            if not self.result_shown:
+                self._show_result_from_game()
 
     def _on_remote_finished(self, message):
         if self.result_shown:
