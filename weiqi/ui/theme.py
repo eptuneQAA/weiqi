@@ -1,0 +1,14 @@
+from PyQt5.QtGui import QColor
+
+BACKGROUND = QColor("#F5EFE3")
+BOARD_LIGHT = QColor("#E6BE75")
+BOARD_DARK = QColor("#C89343")
+GRID = QColor("#4A3218")
+COORD = QColor("#6B5232")
+BLACK_STONE = QColor("#1A1A1A")
+WHITE_STONE = QColor("#FAFAF7")
+ACCENT = QColor("#B23A3A")
+SIDE_BG = QColor("#FBF7EF")
+CHAT_SELF = QColor("#2F6FB0")
+CHAT_OTHER = QColor("#3A7D44")
+SYSTEM = QColor("#8A8A8A")
