@@ -210,6 +210,9 @@ class MainWindow(QMainWindow):
         if dialog.exec_() != QDialog.Accepted:
             return
         room, size, host_color, port = dialog.values()
+        self._start_host_session(room, size, host_color, port)
+
+    def _start_host_session(self, room, size, host_color, port):
         self._stop_session()
         server = GameServer(room, size, host_color, "主机", port, 7.5, self)
         ok, err = server.start()
@@ -219,6 +222,10 @@ class MainWindow(QMainWindow):
                 "端口 {} 启动失败：{}".format(port, err),
             )
             server.deleteLater()
+            self.mode = MODE_IDLE
+            self.game = GameState(19)
+            self.chat.setVisible(False)
+            self._update_ui()
             return
         self.server = server
         server.state_changed.connect(self._apply_snapshot)
@@ -263,6 +270,9 @@ class MainWindow(QMainWindow):
         if listener is not None:
             listener.stop()
             listener.deleteLater()
+        self._start_guest_session(ip, port, name)
+
+    def _start_guest_session(self, ip, port, name):
         self._stop_session()
         client = GameClient(self)
         client.welcome_received.connect(self._on_welcome)

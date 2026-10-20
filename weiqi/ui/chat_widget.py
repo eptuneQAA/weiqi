@@ -82,3 +82,4 @@ class ChatWidget(QWidget):
 
     def clear(self):
         self.messages.clear()
+        self.input.clear()

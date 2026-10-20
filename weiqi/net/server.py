@@ -31,7 +31,7 @@ class GameServer(QObject):
         self.guest_color = opponent(host_color)
         self.host_name = host_name
         self.port = int(port)
-        self.game = GameState(size, komi, host_color)
+        self.game = GameState(size, komi, BLACK)
         self.server = QTcpServer(self)
         self.server.newConnection.connect(self._on_new_connection)
         self.socket = None
@@ -269,7 +269,9 @@ class GameServer(QObject):
         self._send({"type": "state", "state": state})
         self.state_changed.emit(state)
         if self.game.phase == Phase.FINISHED:
-            self.game_finished.emit(self._result())
+            result = self._result()
+            self._send(dict(result, type="result"))
+            self.game_finished.emit(result)
 
     def _result(self):
         return {

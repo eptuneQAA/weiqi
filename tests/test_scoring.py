@@ -50,6 +50,12 @@ class ScoringTest(unittest.TestCase):
         score = compute_score(self._walled_board(), set(), 7.5)
         self.assertEqual(score_text(score), "白胜 7.5 点")
 
+    def test_open_board_has_no_false_dead_groups(self):
+        board = Board(9)
+        board.set(4, 4, BLACK)
+        board.set(3, 3, WHITE)
+        self.assertEqual(auto_dead_groups(board), set())
+
     def test_empty_board_komi(self):
         score = compute_score(Board(9), set(), 7.5)
         self.assertEqual(score["black_area"], 0)

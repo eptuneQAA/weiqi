@@ -111,12 +111,14 @@ def auto_dead_groups(board):
             has_eye = any(
                 original_owner[ly][lx] == color for lx, ly in liberties
             )
-            owner_without = compute_ownership(board, stones)
-            all_opponent = bool(liberties) and all(
-                owner_without[ly][lx] == opponent(color)
+            all_touching_opponent = bool(liberties) and all(
+                any(
+                    board.grid[ny][nx] == opponent(color)
+                    for nx, ny in board.neighbors(lx, ly)
+                )
                 for lx, ly in liberties
             )
-            if not has_eye and all_opponent:
+            if not has_eye and all_touching_opponent:
                 dead |= stones
     return dead
 
