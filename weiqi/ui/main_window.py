@@ -249,7 +249,7 @@ class MainWindow(QMainWindow):
         self.chat.set_enabled(False)
         if self.discovery_enabled:
             self.broadcaster = RoomBroadcaster(self)
-            self.broadcaster.start(room, port, size, host_color)
+            self.broadcaster.start(room, server.port, size, host_color)
         self._update_ui()
         self.statusBar().showMessage("房间已创建，等待对手加入…")
 
