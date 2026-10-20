@@ -1,6 +1,7 @@
 import socket
 
 from PyQt5.QtCore import Qt
+from PyQt5.QtNetwork import QAbstractSocket, QNetworkInterface
 from PyQt5.QtWidgets import (
     QComboBox, QDialog, QDialogButtonBox, QFormLayout, QHBoxLayout, QLabel,
     QLineEdit, QListWidget, QListWidgetItem, QMessageBox, QPushButton,
@@ -13,6 +14,14 @@ from ..net.protocol import DEFAULT_TCP_PORT, MAX_NAME_LENGTH
 
 def local_ip_addresses():
     addresses = []
+    for address in QNetworkInterface.allAddresses():
+        if address.protocol() != QAbstractSocket.IPv4Protocol:
+            continue
+        if address.isLoopback():
+            continue
+        ip = address.toString()
+        if ip not in addresses:
+            addresses.append(ip)
     try:
         for info in socket.getaddrinfo(
             socket.gethostname(), None, socket.AF_INET

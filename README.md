@@ -8,7 +8,11 @@
 python3 main.py
 ```
 
-依赖：Python 3.7+、PyQt5。
+依赖：Python 3.7+、PyQt5。若系统未安装：
+
+```bash
+pip3 install -r requirements.txt
+```
 
 ## 人机对战
 

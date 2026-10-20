@@ -18,10 +18,13 @@ def main():
     argv = [arg for arg in sys.argv if arg != "--no-discovery"]
     app = QApplication(argv)
     app.setApplicationName("围棋")
-    translator = QTranslator()
     translations_path = QLibraryInfo.location(QLibraryInfo.TranslationsPath)
-    if translator.load("qt_zh_CN", translations_path):
-        app.installTranslator(translator)
+    translators = []
+    for name in ("qtbase_zh_CN", "qt_zh_CN"):
+        translator = QTranslator()
+        if translator.load(name, translations_path):
+            app.installTranslator(translator)
+            translators.append(translator)
     window = MainWindow(discovery_enabled=discovery_enabled)
     window.show()
     sys.exit(app.exec_())
