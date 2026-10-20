@@ -54,17 +54,18 @@ class GameServer(QObject):
     def stop(self):
         self.closing = True
         self.heartbeat.stop()
-        if self.socket is not None:
+        socket = self.socket
+        self.socket = None
+        if socket is not None:
             try:
-                self.socket.write(encode_message(
+                socket.write(encode_message(
                     {"type": "bye", "reason": "主机已关闭房间"}
                 ))
-                self.socket.flush()
+                socket.flush()
+                socket.disconnectFromHost()
             except Exception:
                 pass
-            self.socket.disconnectFromHost()
-            self.socket.deleteLater()
-            self.socket = None
+            socket.deleteLater()
         self.client_ready = False
         self.server.close()
 
@@ -317,20 +318,21 @@ class GameServer(QObject):
         self._send({"type": "ping"})
 
     def _disconnect_client(self, reason, notify=False):
-        if self.socket is None:
+        socket = self.socket
+        if socket is None:
             return
-        try:
-            self.socket.write(encode_message({"type": "bye", "reason": reason}))
-            self.socket.flush()
-            self.socket.disconnectFromHost()
-        except Exception:
-            pass
-        self.socket.deleteLater()
         self.socket = None
         was_ready = self.client_ready
         self.client_ready = False
         self.guest_name = ""
         self.error_count = 0
+        try:
+            socket.write(encode_message({"type": "bye", "reason": reason}))
+            socket.flush()
+            socket.disconnectFromHost()
+        except Exception:
+            pass
+        socket.deleteLater()
         if notify and was_ready:
             self.client_left.emit(reason)
 
