@@ -10,8 +10,19 @@ class Phase(Enum):
     FINISHED = "finished"
 
 
+# 让子固定位置，按标准顺序取前 N 个（(x, y)，0 起算）
+HANDICAP_POINTS = {
+    9: [(6, 2), (2, 6), (6, 6), (2, 2), (4, 2), (2, 4), (6, 4), (4, 6), (4, 4)],
+    13: [(9, 3), (3, 9), (9, 9), (3, 3), (6, 3), (3, 6), (9, 6), (6, 9), (6, 6)],
+    19: [
+        (15, 3), (3, 15), (15, 15), (3, 3), (9, 3), (3, 9), (15, 9), (9, 15),
+        (9, 9),
+    ],
+}
+
+
 class GameState:
-    def __init__(self, size=19, komi=7.5, first_color=BLACK):
+    def __init__(self, size=19, komi=7.5, first_color=BLACK, handicap=0):
         self.size = size
         self.komi = komi
         self.first_color = first_color
@@ -26,6 +37,24 @@ class GameState:
         self.winner = None
         self.result_reason = ""
         self.resigned_by = None
+        self.handicap = 0
+        if handicap:
+            self.setup_handicap(handicap)
+
+    def setup_handicap(self, count):
+        """摆放让子，并由白方先行（中国规则：让子棋白先）。"""
+        points = HANDICAP_POINTS.get(self.size, [])
+        count = max(0, min(int(count), len(points)))
+        if count < 2:
+            return 0
+        for x, y in points[:count]:
+            self.board.set(x, y, BLACK)
+        self.handicap = count
+        self.turn = WHITE
+        self.first_color = WHITE
+        self.positions = {self.board.position_key()}
+        self.history = []
+        return count
 
     @property
     def last_move(self):
@@ -154,6 +183,7 @@ class GameState:
             "size": self.size,
             "komi": self.komi,
             "first_color": self.first_color,
+            "handicap": self.handicap,
             "turn": self.turn,
             "phase": self.phase.value,
             "moves": moves,
@@ -170,7 +200,10 @@ class GameState:
 
     @classmethod
     def from_snapshot(cls, data):
-        game = cls(int(data["size"]), float(data["komi"]), int(data["first_color"]))
+        game = cls(
+            int(data["size"]), float(data["komi"]), int(data["first_color"]),
+            int(data.get("handicap", 0) or 0),
+        )
         for move in data.get("moves", []):
             if move.get("x") is None:
                 game.pass_turn()

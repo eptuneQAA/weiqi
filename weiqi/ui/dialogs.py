@@ -3,9 +3,9 @@ import socket
 from PyQt5.QtCore import Qt
 from PyQt5.QtNetwork import QAbstractSocket, QNetworkInterface
 from PyQt5.QtWidgets import (
-    QComboBox, QDialog, QDialogButtonBox, QFormLayout, QHBoxLayout, QLabel,
-    QLineEdit, QListWidget, QListWidgetItem, QMessageBox, QPushButton,
-    QSpinBox, QVBoxLayout,
+    QComboBox, QDialog, QDialogButtonBox, QDoubleSpinBox, QFormLayout,
+    QHBoxLayout, QLabel, QLineEdit, QListWidget, QListWidgetItem, QMessageBox,
+    QPushButton, QSpinBox, QVBoxLayout,
 )
 
 from ..core.board import BLACK, WHITE
@@ -47,24 +47,42 @@ def default_player_name():
 
 
 class NewGameDialog(QDialog):
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, defaults=None):
         super().__init__(parent)
+        defaults = defaults or {}
         self.setWindowTitle("新对局（人机）")
         form = QFormLayout()
         self.size_combo = QComboBox()
         for text, value in (("9 路", 9), ("13 路", 13), ("19 路", 19)):
             self.size_combo.addItem(text, value)
-        self.size_combo.setCurrentIndex(2)
+        size_index = self.size_combo.findData(int(defaults.get("size", 19)))
+        self.size_combo.setCurrentIndex(max(0, size_index))
         self.difficulty_combo = QComboBox()
         for text in ("入门", "普通", "较强"):
             self.difficulty_combo.addItem(text)
-        self.difficulty_combo.setCurrentIndex(1)
+        difficulty = str(defaults.get("difficulty", "普通"))
+        if self.difficulty_combo.findText(difficulty) >= 0:
+            self.difficulty_combo.setCurrentText(difficulty)
         self.color_combo = QComboBox()
         self.color_combo.addItem("执黑", BLACK)
         self.color_combo.addItem("执白", WHITE)
+        color_index = self.color_combo.findData(int(defaults.get("color", BLACK)))
+        self.color_combo.setCurrentIndex(max(0, color_index))
+        self.komi_spin = QDoubleSpinBox()
+        self.komi_spin.setRange(0.0, 30.0)
+        self.komi_spin.setSingleStep(0.5)
+        self.komi_spin.setDecimals(1)
+        self.komi_spin.setValue(float(defaults.get("komi", 7.5)))
+        self.handicap_spin = QSpinBox()
+        self.handicap_spin.setRange(0, 9)
+        self.handicap_spin.setValue(int(defaults.get("handicap", 0)))
         form.addRow("棋盘大小", self.size_combo)
         form.addRow("AI 难度", self.difficulty_combo)
         form.addRow("我方执子", self.color_combo)
+        form.addRow("贴目", self.komi_spin)
+        form.addRow("让子数", self.handicap_spin)
+        hint = QLabel("让子 2 子及以上时由白方先行，贴目通常设为 0.5。")
+        hint.setWordWrap(True)
         buttons = QDialogButtonBox(
             QDialogButtonBox.Ok | QDialogButtonBox.Cancel
         )
@@ -72,19 +90,23 @@ class NewGameDialog(QDialog):
         buttons.rejected.connect(self.reject)
         layout = QVBoxLayout(self)
         layout.addLayout(form)
+        layout.addWidget(hint)
         layout.addWidget(buttons)
 
     def values(self):
-        return (
-            int(self.size_combo.currentData()),
-            self.difficulty_combo.currentText(),
-            int(self.color_combo.currentData()),
-        )
+        return {
+            "size": int(self.size_combo.currentData()),
+            "difficulty": self.difficulty_combo.currentText(),
+            "color": int(self.color_combo.currentData()),
+            "komi": float(self.komi_spin.value()),
+            "handicap": int(self.handicap_spin.value()),
+        }
 
 
 class HostGameDialog(QDialog):
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, defaults=None):
         super().__init__(parent)
+        defaults = defaults or {}
         self.setWindowTitle("创建局域网房间")
         form = QFormLayout()
         self.room_edit = QLineEdit(default_room_name())
@@ -92,18 +114,27 @@ class HostGameDialog(QDialog):
         self.size_combo = QComboBox()
         for text, value in (("9 路", 9), ("13 路", 13), ("19 路", 19)):
             self.size_combo.addItem(text, value)
-        self.size_combo.setCurrentIndex(2)
+        size_index = self.size_combo.findData(int(defaults.get("size", 19)))
+        self.size_combo.setCurrentIndex(max(0, size_index))
         self.color_combo = QComboBox()
         self.color_combo.addItem("主机执黑", BLACK)
         self.color_combo.addItem("主机执白", WHITE)
+        color_index = self.color_combo.findData(int(defaults.get("color", BLACK)))
+        self.color_combo.setCurrentIndex(max(0, color_index))
+        self.komi_spin = QDoubleSpinBox()
+        self.komi_spin.setRange(0.0, 30.0)
+        self.komi_spin.setSingleStep(0.5)
+        self.komi_spin.setDecimals(1)
+        self.komi_spin.setValue(float(defaults.get("komi", 7.5)))
         self.port_spin = QSpinBox()
         self.port_spin.setRange(1024, 65535)
-        self.port_spin.setValue(DEFAULT_TCP_PORT)
+        self.port_spin.setValue(int(defaults.get("port", DEFAULT_TCP_PORT)))
         ip_label = QLabel("、".join(local_ip_addresses()))
         ip_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
         form.addRow("房间名称", self.room_edit)
         form.addRow("棋盘大小", self.size_combo)
         form.addRow("主机执子", self.color_combo)
+        form.addRow("贴目", self.komi_spin)
         form.addRow("TCP 端口", self.port_spin)
         form.addRow("本机 IP", ip_label)
         hint = QLabel("客机可手动输入上方 IP 与端口，或通过自动发现加入。")
@@ -125,6 +156,7 @@ class HostGameDialog(QDialog):
             int(self.size_combo.currentData()),
             int(self.color_combo.currentData()),
             int(self.port_spin.value()),
+            float(self.komi_spin.value()),
         )
 
 

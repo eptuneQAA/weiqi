@@ -1,16 +1,18 @@
 from datetime import datetime
+import os
 
-from PyQt5.QtCore import QThread, pyqtSignal
+from PyQt5.QtCore import Qt, QThread, pyqtSignal
 from PyQt5.QtGui import QFont, QKeySequence
 from PyQt5.QtWidgets import (
-    QAction, QDialog, QGridLayout, QHBoxLayout, QLabel, QMainWindow,
-    QMessageBox, QPushButton, QVBoxLayout, QWidget,
+    QAction, QDialog, QFileDialog, QGridLayout, QHBoxLayout, QLabel,
+    QMainWindow, QMessageBox, QPushButton, QVBoxLayout, QWidget,
 )
 
 from ..ai.engine import AIEngine
 from ..core.board import BLACK, EMPTY, WHITE, color_name, opponent
 from ..core.game import GameState, Phase
 from ..core.scoring import score_text, toggle_group_dead
+from ..core import sgf
 from ..net.client import GameClient
 from ..net.discovery import RoomBroadcaster, RoomListener
 from ..net.server import GameServer
@@ -20,11 +22,13 @@ from .dialogs import (
     HostGameDialog, JoinGameDialog, NewGameDialog, ResultDialog,
 )
 from .help_dialog import HelpDialog
+from .settings import SettingsDialog, get as get_setting, set_value
 
 MODE_IDLE = "idle"
 MODE_AI = "ai"
 MODE_HOST = "host"
 MODE_GUEST = "guest"
+MODE_REVIEW = "review"
 
 
 class AIWorker(QThread):
@@ -71,8 +75,15 @@ class MainWindow(QMainWindow):
         self.client_connected = False
         self.result_shown = False
         self.local_name = ""
+        self.review_game = None
+        self.review_moves = []
+        self.review_index = 0
+        self.review_path = ""
         self.setWindowTitle("围棋")
         self.resize(1040, 780)
+        geometry = get_setting("geometry")
+        if geometry is not None:
+            self.restoreGeometry(geometry)
         self._build_ui()
         self._build_menu()
         self._update_ui()
@@ -130,19 +141,77 @@ class MainWindow(QMainWindow):
         layout.addWidget(side)
 
     def _build_menu(self):
-        game_menu = self.menuBar().addMenu("对局")
-        for text, slot in (
-            ("人机对战", self._new_ai_game),
-            ("创建局域网房间", self._create_host),
-            ("加入局域网房间", self._join_host),
-        ):
-            action = QAction(text, self)
-            action.triggered.connect(slot)
-            game_menu.addAction(action)
-        game_menu.addSeparator()
+        file_menu = self.menuBar().addMenu("文件")
+        open_action = QAction("打开棋谱…", self)
+        open_action.setShortcut(QKeySequence.Open)
+        open_action.setStatusTip("打开 SGF 棋谱复盘（Ctrl+O）")
+        open_action.triggered.connect(self._open_sgf)
+        file_menu.addAction(open_action)
+        save_action = QAction("保存棋谱…", self)
+        save_action.setShortcut(QKeySequence.Save)
+        save_action.setStatusTip("把当前对局保存为 SGF（Ctrl+S）")
+        save_action.triggered.connect(self._save_sgf)
+        file_menu.addAction(save_action)
+        file_menu.addSeparator()
         quit_action = QAction("退出", self)
+        quit_action.setShortcut(QKeySequence.Quit)
         quit_action.triggered.connect(self.close)
-        game_menu.addAction(quit_action)
+        file_menu.addAction(quit_action)
+
+        game_menu = self.menuBar().addMenu("对局")
+        new_action = QAction("人机对战…", self)
+        new_action.setShortcut(QKeySequence.New)
+        new_action.setStatusTip("开始一盘人机对局（Ctrl+N）")
+        new_action.triggered.connect(self._new_ai_game)
+        game_menu.addAction(new_action)
+        host_action = QAction("创建局域网房间…", self)
+        host_action.triggered.connect(self._create_host)
+        game_menu.addAction(host_action)
+        join_action = QAction("加入局域网房间…", self)
+        join_action.triggered.connect(self._join_host)
+        game_menu.addAction(join_action)
+        game_menu.addSeparator()
+
+        self.undo_action = QAction("悔棋", self)
+        self.undo_action.setShortcut(QKeySequence.Undo)
+        self.undo_action.triggered.connect(self._undo)
+        game_menu.addAction(self.undo_action)
+        self.pass_action = QAction("停一手", self)
+        self.pass_action.setShortcut(QKeySequence("P"))
+        self.pass_action.triggered.connect(self._pass)
+        game_menu.addAction(self.pass_action)
+        self.resign_action = QAction("认输", self)
+        self.resign_action.triggered.connect(self._resign)
+        game_menu.addAction(self.resign_action)
+        self.confirm_action = QAction("确认数子", self)
+        self.confirm_action.triggered.connect(self._confirm_score)
+        game_menu.addAction(self.confirm_action)
+        game_menu.addSeparator()
+
+        self.prev_action = QAction("上一手", self)
+        self.prev_action.setShortcut(QKeySequence(Qt.Key_Left))
+        self.prev_action.triggered.connect(lambda: self._review_step(-1))
+        game_menu.addAction(self.prev_action)
+        self.next_action = QAction("下一手", self)
+        self.next_action.setShortcut(QKeySequence(Qt.Key_Right))
+        self.next_action.triggered.connect(lambda: self._review_step(1))
+        game_menu.addAction(self.next_action)
+        self.first_action = QAction("回到开局", self)
+        self.first_action.setShortcut(QKeySequence("Home"))
+        self.first_action.triggered.connect(lambda: self._review_goto(0))
+        game_menu.addAction(self.first_action)
+        self.last_action = QAction("跳到末手", self)
+        self.last_action.setShortcut(QKeySequence("End"))
+        self.last_action.triggered.connect(
+            lambda: self._review_goto(len(self.review_moves))
+        )
+        game_menu.addAction(self.last_action)
+
+        settings_menu = self.menuBar().addMenu("设置")
+        options_action = QAction("选项…", self)
+        options_action.triggered.connect(self._show_settings)
+        settings_menu.addAction(options_action)
+
         help_menu = self.menuBar().addMenu("帮助")
         help_action = QAction("新手帮助", self)
         help_action.setShortcut(QKeySequence.HelpContents)
@@ -193,14 +262,17 @@ class MainWindow(QMainWindow):
             self.broadcaster.deleteLater()
             self.broadcaster = None
 
-    def _start_ai_game(self, size, difficulty, color):
+    def _start_ai_game(self, size, difficulty, color, komi=7.5, handicap=0):
         self._stop_session()
         self.mode = MODE_AI
         self.human_color = color
         self.ai_color = opponent(color)
-        self.game = GameState(size, 7.5, BLACK)
+        self.game = GameState(size, komi, BLACK, handicap)
         self.ai_engine = AIEngine(difficulty)
-        self.last_ai_config = (size, difficulty, color)
+        self.last_ai_config = {
+            "size": size, "difficulty": difficulty, "color": color,
+            "komi": komi, "handicap": handicap,
+        }
         self.result_shown = False
         self.local_name = ""
         self.chat.setVisible(False)
@@ -212,22 +284,45 @@ class MainWindow(QMainWindow):
             self.statusBar().showMessage("轮到你落子")
 
     def _new_ai_game(self):
-        dialog = NewGameDialog(self)
+        defaults = {
+            "size": get_setting("board_size"),
+            "difficulty": get_setting("difficulty"),
+            "color": get_setting("human_color"),
+            "komi": get_setting("komi"),
+            "handicap": get_setting("handicap"),
+        }
+        dialog = NewGameDialog(self, defaults)
         if dialog.exec_() != QDialog.Accepted:
             return
-        size, difficulty, color = dialog.values()
-        self._start_ai_game(size, difficulty, color)
+        values = dialog.values()
+        set_value("board_size", values["size"])
+        set_value("difficulty", values["difficulty"])
+        set_value("human_color", values["color"])
+        set_value("komi", values["komi"])
+        set_value("handicap", values["handicap"])
+        self._start_ai_game(**values)
 
     def _create_host(self):
-        dialog = HostGameDialog(self)
+        defaults = {
+            "size": get_setting("board_size"),
+            "color": get_setting("human_color"),
+            "komi": get_setting("komi"),
+            "port": get_setting("port"),
+        }
+        dialog = HostGameDialog(self, defaults)
         if dialog.exec_() != QDialog.Accepted:
             return
-        room, size, host_color, port = dialog.values()
-        self._start_host_session(room, size, host_color, port)
+        room, size, host_color, port, komi = dialog.values()
+        set_value("board_size", size)
+        set_value("human_color", host_color)
+        set_value("port", port)
+        self._start_host_session(room, size, host_color, port, komi)
 
-    def _start_host_session(self, room, size, host_color, port):
+    def _start_host_session(self, room, size, host_color, port, komi=7.5):
         self._stop_session()
-        server = GameServer(room, size, host_color, "主机", port, 7.5, self)
+        server = GameServer(
+            room, size, host_color, "主机", port, komi, self
+        )
         ok, err = server.start()
         if not ok:
             QMessageBox.warning(
@@ -448,12 +543,16 @@ class MainWindow(QMainWindow):
         )
         mode_names = {
             MODE_IDLE: "未开始", MODE_AI: "人机对战",
-            MODE_HOST: "主机", MODE_GUEST: "客机",
+            MODE_HOST: "主机", MODE_GUEST: "客机", MODE_REVIEW: "复盘",
         }
         self.mode_label.setText(
             "模式：{}".format(mode_names.get(self.mode, "未开始"))
         )
-        if self.mode == MODE_IDLE:
+        if self.mode == MODE_REVIEW:
+            self.turn_label.setText(
+                "第 {} / {} 手".format(self.review_index, len(self.review_moves))
+            )
+        elif self.mode == MODE_IDLE:
             self.turn_label.setText("—")
         elif phase == Phase.PLAYING:
             if self.mode in (MODE_HOST, MODE_GUEST) and not self._is_connected():
@@ -496,6 +595,19 @@ class MainWindow(QMainWindow):
         self.undo_button.setEnabled(self._can_undo())
         self.confirm_button.setEnabled(marking)
         self.chat.set_enabled(self._chat_available())
+        self.pass_action.setEnabled(interactive)
+        self.resign_action.setEnabled(self._can_resign())
+        self.undo_action.setEnabled(self._can_undo())
+        self.confirm_action.setEnabled(marking)
+        reviewing = self.mode == MODE_REVIEW
+        self.prev_action.setEnabled(reviewing and self.review_index > 0)
+        self.next_action.setEnabled(
+            reviewing and self.review_index < len(self.review_moves)
+        )
+        self.first_action.setEnabled(reviewing and self.review_index > 0)
+        self.last_action.setEnabled(
+            reviewing and self.review_index < len(self.review_moves)
+        )
 
     def _on_point_clicked(self, x, y):
         if self.game.phase == Phase.SCORING:
@@ -702,8 +814,7 @@ class MainWindow(QMainWindow):
         dialog = ResultDialog(text, allow_replay, self)
         dialog.exec_()
         if dialog.replay and self.last_ai_config is not None:
-            size, difficulty, color = self.last_ai_config
-            self._start_ai_game(size, difficulty, color)
+            self._start_ai_game(**self.last_ai_config)
 
     def _show_error(self, text):
         self.statusBar().showMessage(str(text), 5000)
@@ -711,6 +822,106 @@ class MainWindow(QMainWindow):
     def _show_help(self, page_id="quickstart"):
         dialog = HelpDialog(page_id, self)
         dialog.exec_()
+
+    def _show_settings(self):
+        dialog = SettingsDialog(self)
+        if dialog.exec_() == QDialog.Accepted:
+            self.statusBar().showMessage("设置已保存", 3000)
+
+    # ---------- SGF 存取与复盘 ----------
+
+    def _default_dir(self):
+        directory = str(get_setting("last_dir") or "")
+        if directory and os.path.isdir(directory):
+            return directory
+        return os.path.expanduser("~")
+
+    def _open_sgf(self):
+        path, _filter = QFileDialog.getOpenFileName(
+            self, "打开棋谱", self._default_dir(),
+            "SGF 棋谱 (*.sgf);;所有文件 (*)",
+        )
+        if not path:
+            return
+        try:
+            game = sgf.load_file(path)
+        except (OSError, ValueError) as exc:
+            QMessageBox.warning(self, "无法打开棋谱", str(exc))
+            return
+        self._stop_session()
+        self.mode = MODE_REVIEW
+        self.review_game = game
+        self.review_moves = list(game.history)
+        self.review_index = len(self.review_moves)
+        self.review_path = path
+        self.result_shown = True
+        set_value("last_dir", os.path.dirname(path))
+        self._apply_review()
+        self.statusBar().showMessage(
+            "复盘：{}（共 {} 手，← → 逐步查看）".format(
+                os.path.basename(path), len(self.review_moves)
+            ),
+            6000,
+        )
+
+    def _save_sgf(self):
+        if not self.game.history and not self.game.handicap:
+            QMessageBox.information(self, "保存棋谱", "当前没有可保存的对局。")
+            return
+        default_name = os.path.join(
+            self._default_dir(),
+            "围棋-{}.sgf".format(datetime.now().strftime("%Y%m%d-%H%M")),
+        )
+        path, _filter = QFileDialog.getSaveFileName(
+            self, "保存棋谱", default_name, "SGF 棋谱 (*.sgf)"
+        )
+        if not path:
+            return
+        if not path.lower().endswith(".sgf"):
+            path += ".sgf"
+        try:
+            sgf.save_file(path, self.game)
+        except OSError as exc:
+            QMessageBox.warning(self, "保存失败", str(exc))
+            return
+        set_value("last_dir", os.path.dirname(path))
+        self.statusBar().showMessage("已保存：{}".format(path), 5000)
+
+    def _apply_review(self):
+        game = GameState(
+            self.review_game.size, self.review_game.komi, BLACK,
+            self.review_game.handicap,
+        )
+        for color, x, y in self.review_moves[: self.review_index]:
+            # 复盘时按棋谱里的颜色走，允许跨过中途的停一手/数子状态
+            if game.phase != Phase.PLAYING:
+                game.phase = Phase.PLAYING
+            game.turn = color
+            if x is None:
+                game.pass_turn()
+                continue
+            ok, _err = game.play(x, y)
+            if not ok:
+                break
+        self.game = game
+        self._update_ui()
+
+    def _review_step(self, delta):
+        if self.mode != MODE_REVIEW:
+            return
+        self._review_goto(self.review_index + delta)
+
+    def _review_goto(self, index):
+        if self.mode != MODE_REVIEW:
+            return
+        index = max(0, min(len(self.review_moves), int(index)))
+        if index == self.review_index:
+            return
+        self.review_index = index
+        self._apply_review()
+        self.statusBar().showMessage(
+            "复盘：第 {} / {} 手".format(self.review_index, len(self.review_moves))
+        )
 
     def _show_about(self):
         QMessageBox.information(
@@ -720,5 +931,6 @@ class MainWindow(QMainWindow):
         )
 
     def closeEvent(self, event):
+        set_value("geometry", self.saveGeometry())
         self._stop_session()
         super().closeEvent(event)

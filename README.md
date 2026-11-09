@@ -77,5 +77,21 @@ python3 main.py --no-discovery
 ## 测试
 
 ```bash
-python3 -m unittest discover -s tests -v
+python3 -m unittest discover -s tests -t .
 ```
+
+（`-t .` 让 `tests` 作为包导入，从而在 `tests/__init__.py` 里先创建 offscreen
+的 `QApplication`；不带 `-t .` 时 UI 冒烟测试会被跳过而不是报错。）
+
+## 棋谱（SGF）
+
+- 菜单“文件 → 保存棋谱…”（Ctrl+S）把当前对局存为 SGF（FF[4]，含贴目、让子、
+  结果与死子标记）。
+- 菜单“文件 → 打开棋谱…”（Ctrl+O）载入 `.sgf` 进入复盘模式，用 ← → 逐步查看，
+  Home/End 跳到开局/末手。只读取主分支，变体会被忽略。
+- 让子通过 `AB`/`HA` 写进棋谱，外部工具（Sabaki、KGS 等）可以直接打开。
+
+## 设置与记忆
+
+菜单“设置 → 选项…”可修改默认棋盘大小、AI 难度、执子、贴目、让子数和默认端口；
+窗口尺寸、上次使用的配置与上次打开棋谱的目录都会记住（`QSettings`）。
