@@ -111,7 +111,7 @@ class GameState:
         return True
 
     def resign(self, color):
-        if self.phase == Phase.FINISHED:
+        if self.phase != Phase.PLAYING:
             return False
         self.phase = Phase.FINISHED
         self.winner = "white" if color == BLACK else "black"

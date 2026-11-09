@@ -4,13 +4,13 @@ import logging
 import time
 
 from PyQt5.QtCore import QObject, QTimer, pyqtSignal
-from PyQt5.QtNetwork import QHostAddress, QTcpServer
+from PyQt5.QtNetwork import QHostAddress, QNetworkProxy, QTcpServer
 
 from ..core.board import BLACK, opponent
 from ..core.game import GameState, Phase
 from .protocol import (
-    PROTOCOL_VERSION, ProtocolError, clean_chat_text, clean_name,
-    decode_message, encode_message,
+    MAX_BUFFER_BYTES, PROTOCOL_VERSION, ProtocolError, clean_chat_text,
+    clean_name, decode_message, encode_message,
 )
 
 logger = logging.getLogger(__name__)
@@ -36,6 +36,8 @@ class GameServer(QObject):
         self.port = int(port)
         self.game = GameState(size, komi, BLACK)
         self.server = QTcpServer(self)
+        # 与客户端同理：监听/收发的局域网连接不能走系统代理。
+        self.server.setProxy(QNetworkProxy(QNetworkProxy.NoProxy))
         self.server.newConnection.connect(self._on_new_connection)
         self.socket = None
         self.buffer = b""
@@ -104,6 +106,9 @@ class GameServer(QObject):
         if socket is not self.socket:
             return
         self.buffer += bytes(socket.readAll())
+        if len(self.buffer) > MAX_BUFFER_BYTES and b"\n" not in self.buffer:
+            self._disconnect_client("对端发送的数据过长", notify=True)
+            return
         while b"\n" in self.buffer:
             line, self.buffer = self.buffer.split(b"\n", 1)
             if not line.strip():

@@ -399,7 +399,7 @@ class MainWindow(QMainWindow):
         return self.mode == MODE_HOST and self.guest_joined
 
     def _can_resign(self):
-        if self.game.phase not in (Phase.PLAYING, Phase.SCORING):
+        if self.game.phase != Phase.PLAYING:
             return False
         return self._is_connected()
 

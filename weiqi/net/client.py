@@ -4,11 +4,11 @@ import logging
 import time
 
 from PyQt5.QtCore import QObject, QTimer, pyqtSignal
-from PyQt5.QtNetwork import QAbstractSocket, QTcpSocket
+from PyQt5.QtNetwork import QAbstractSocket, QNetworkProxy, QTcpSocket
 
 from .protocol import (
-    PROTOCOL_VERSION, ProtocolError, clean_name, decode_message,
-    encode_message,
+    MAX_BUFFER_BYTES, PROTOCOL_VERSION, ProtocolError, clean_name,
+    decode_message, encode_message,
 )
 
 logger = logging.getLogger(__name__)
@@ -38,6 +38,9 @@ class GameClient(QObject):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.socket = QTcpSocket(self)
+        # 关闭代理：QTcpSocket 默认会走 Qt 的系统代理设置（读 http_proxy 等环境变量），
+        # 而局域网/回环地址不应该经过代理，否则开着代理客户端时连接会被转发到代理而失败。
+        self.socket.setProxy(QNetworkProxy(QNetworkProxy.NoProxy))
         self.socket.connected.connect(self._on_connected)
         self.socket.readyRead.connect(self._on_ready_read)
         self.socket.disconnected.connect(self._on_disconnected)
@@ -74,6 +77,9 @@ class GameClient(QObject):
 
     def _on_ready_read(self):
         self.buffer += bytes(self.socket.readAll())
+        if len(self.buffer) > MAX_BUFFER_BYTES and b"\n" not in self.buffer:
+            self._fail("对端发送的数据过长")
+            return
         while b"\n" in self.buffer:
             line, self.buffer = self.buffer.split(b"\n", 1)
             if not line.strip():
