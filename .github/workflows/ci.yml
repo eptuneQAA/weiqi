@@ -1,0 +1,111 @@
+name: 测试与打包
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+# 同一分支的新推送取消上一次未完成的运行，省 Actions 分钟数
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: 单元测试（含 UI 无头用例）
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 安装运行依赖
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends python3 python3-pyqt5
+
+      - name: 运行测试
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: python3 -m unittest discover -s tests -t . -v
+
+  package:
+    name: 构建 deb 安装包
+    needs: test
+    # PR 只跑测试，不消耗打包时间
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 安装构建依赖
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential debhelper dpkg-dev fakeroot lintian python3 python3-pyqt5
+
+      - name: 读取版本号
+        id: version
+        run: echo "version=$(dpkg-parsechangelog -S Version)" >> "$GITHUB_OUTPUT"
+
+      - name: 校验 tag 与 changelog 版本一致
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          version="${{ steps.version.outputs.version }}"
+          tag="${GITHUB_REF_NAME#v}"
+          if [ "$tag" != "$version" ]; then
+            echo "::error::tag ${GITHUB_REF_NAME} 与 debian/changelog 的版本 ${version} 不一致，请先更新 changelog"
+            exit 1
+          fi
+
+      - name: 构建安装包
+        run: |
+          dpkg-buildpackage -us -uc -b
+          mkdir -p dist
+          mv ../weiqi_*.deb ../weiqi_*.buildinfo ../weiqi_*.changes dist/ 2>/dev/null || true
+          ls -lh dist/
+
+      - name: 校验产物结构
+        run: |
+          deb="dist/weiqi_${{ steps.version.outputs.version }}_all.deb"
+          test -f "$deb"
+          dpkg-deb --info "$deb"
+          contents="$(dpkg-deb --contents "$deb")"
+          grep -q './usr/games/weiqi' <<<"$contents"
+          grep -q 'weiqi/ui/main_window.py' <<<"$contents"
+          echo "安装包结构校验通过"
+
+      - name: lintian 检查（仅提示，不阻断）
+        continue-on-error: true
+        run: lintian --info --display-info dist/weiqi_${{ steps.version.outputs.version }}_all.deb
+
+      - name: 上传安装包
+        uses: actions/upload-artifact@v4
+        with:
+          name: weiqi-deb-${{ steps.version.outputs.version }}
+          path: dist/weiqi_${{ steps.version.outputs.version }}_all.deb
+          retention-days: 30
+
+  release:
+    name: 发布 Release
+    needs: package
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: 下载安装包
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: 创建 Release 并附加 deb
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.deb
+          generate_release_notes: true
+          fail_on_unmatched_files: true

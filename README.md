@@ -91,6 +91,27 @@ python3 -m unittest discover -s tests -t .
   Home/End 跳到开局/末手。只读取主分支，变体会被忽略。
 - 让子通过 `AB`/`HA` 写进棋谱，外部工具（Sabaki、KGS 等）可以直接打开。
 
+## 持续集成（GitHub Actions）
+
+`.github/workflows/ci.yml`，推送到 GitHub 后自动跑：
+
+| 触发 | 行为 |
+|---|---|
+| push 到 `main` | 单元测试 → 构建 `weiqi_<版本>_all.deb` → 作为构建产物上传（保留 30 天） |
+| Pull Request | 只跑单元测试（不消耗打包时间） |
+| 推送 `v*` tag | 先校验 tag 与 `debian/changelog` 版本一致，然后构建 deb 并自动创建 Release、附上安装包 |
+| 手动 | Actions 页面 “Run workflow” |
+
+本地复现 CI 的打包步骤：
+
+```bash
+dpkg-buildpackage -us -uc -b      # 产物在上一级目录
+lintian --info ../weiqi_*_all.deb # 仅提示，不阻断
+```
+
+发版流程：改 `debian/changelog`（版本号）→ 提交 → `git tag v1.1.0 && git push origin v1.1.0`，
+Actions 会自动出包并挂到 Release 上。
+
 ## 性能
 
 AI 的 playout 走增量候选点集合，落子路径不再整盘拷贝：
