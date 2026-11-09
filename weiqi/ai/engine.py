@@ -171,25 +171,30 @@ class AIEngine:
         turn = opponent(color)
         passes = 0
         max_moves = 120 if board.size <= 9 else 80
+        # 候选点集合只在落子附近增量维护，避免每一步全盘 25 邻域扫描
+        nearby = self._nearby_empty(board, move)
         for _ in range(max_moves):
             if time.monotonic() >= deadline:
                 break
             if cancel_check is not None and cancel_check():
                 return None
-            options = self._local_empty_points(board)
-            if not options:
+            if not nearby:
                 passes += 1
                 if passes >= 2:
                     break
                 turn = opponent(turn)
                 continue
-            self.random.shuffle(options)
+            sample = self.random.sample(
+                tuple(nearby), min(20, len(nearby))
+            )
             played = False
-            for x, y in options[:20]:
+            for x, y in sample:
                 if self._is_own_eye(board, x, y, turn):
                     continue
                 moved, _ = board.play(x, y, turn)
                 if moved:
+                    nearby.discard((x, y))
+                    self._add_nearby(board, nearby, x, y)
                     played = True
                     passes = 0
                     turn = opponent(turn)
@@ -212,25 +217,26 @@ class AIEngine:
         threshold = other_area + (game.komi if color == BLACK else 0.0)
         return 1.0 if my_area > threshold else 0.0
 
-    def _local_empty_points(self, board):
-        radius = 2
-        points = []
+    def _nearby_empty(self, board, extra_move=None, radius=2):
+        """收集所有"离任一颗棋子 radius 内"的空点，供 playout 增量维护。"""
+        points = set()
         for y in range(board.size):
-            for x in range(board.size):
-                if board.grid[y][x] != EMPTY:
-                    continue
-                near = False
-                for dy in range(-radius, radius + 1):
-                    for dx in range(-radius, radius + 1):
-                        nx, ny = x + dx, y + dy
-                        if (
-                            board.in_bounds(nx, ny)
-                            and board.grid[ny][nx] != EMPTY
-                        ):
-                            near = True
-                            break
-                    if near:
-                        break
-                if near:
-                    points.append((x, y))
+            row = board.grid[y]
+            for x, value in enumerate(row):
+                if value != EMPTY:
+                    self._add_nearby(board, points, x, y, radius)
+        if extra_move is not None:
+            self._add_nearby(board, points, extra_move[0], extra_move[1], radius)
         return points
+
+    def _add_nearby(self, board, points, x, y, radius=2):
+        """把 (x, y) 周围 radius 内的空点加入集合。"""
+        for dy in range(-radius, radius + 1):
+            ny = y + dy
+            if not 0 <= ny < board.size:
+                continue
+            row = board.grid[ny]
+            for dx in range(-radius, radius + 1):
+                nx = x + dx
+                if 0 <= nx < board.size and row[nx] == EMPTY:
+                    points.add((nx, ny))

@@ -91,6 +91,23 @@ python3 -m unittest discover -s tests -t .
   Home/End 跳到开局/末手。只读取主分支，变体会被忽略。
 - 让子通过 `AB`/`HA` 写进棋谱，外部工具（Sabaki、KGS 等）可以直接打开。
 
+## 性能
+
+AI 的 playout 走增量候选点集合，落子路径不再整盘拷贝：
+
+| 棋盘 | 优化前 | 优化后 | 提升 |
+|---|---|---|---|
+| 9 路 | 41 playout/s | 53 playout/s | 1.3× |
+| 13 路 | 51 playout/s | 410 playout/s | 8× |
+| 19 路 | 15 playout/s | 374 playout/s | 24× |
+
+同样 3 秒预算下 19 路能多算 20 多倍的分支，棋力与响应都明显改善。复现：
+
+```bash
+python3 tools/bench_ai.py 普通 19 3
+python3 tools/render_ui.py     # 无显示器环境下渲染主页/对局/复盘截图
+```
+
 ## 设置与记忆
 
 菜单“设置 → 选项…”可修改默认棋盘大小、AI 难度、执子、贴目、让子数和默认端口；

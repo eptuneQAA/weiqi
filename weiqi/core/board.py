@@ -74,22 +74,24 @@ class Board:
             return False, "落子超出棋盘"
         if self.grid[y][x] != EMPTY:
             return False, "该位置已有棋子"
-        before = [row[:] for row in self.grid]
-        before_captures = dict(self.captures)
         self.grid[y][x] = color
-        captured = 0
+        captured_stones = []
         for nx, ny in self.neighbors(x, y):
             if self.grid[ny][nx] == opponent(color):
                 stones, liberties = self.group_and_liberties(nx, ny)
                 if not liberties:
                     for sx, sy in stones:
                         self.grid[sy][sx] = EMPTY
-                    captured += len(stones)
+                    captured_stones.extend(stones)
+        captured = len(captured_stones)
         self.captures[color] += captured
         _own_stones, own_liberties = self.group_and_liberties(x, y)
         if not own_liberties:
-            self.grid = before
-            self.captures = before_captures
+            # 回滚：恢复被提的子并拿掉刚落的子，避免整盘 grid 拷贝
+            for sx, sy in captured_stones:
+                self.grid[sy][sx] = opponent(color)
+            self.grid[y][x] = EMPTY
+            self.captures[color] -= captured
             return False, "禁止自杀"
         return True, ""
 
@@ -101,7 +103,8 @@ class Board:
         return ok
 
     def position_key(self):
-        return tuple(tuple(row) for row in self.grid)
+        # bytes 比 tuple-of-tuples 构造和哈希都快得多，且可直接进 set 判重
+        return b"".join(bytes(row) for row in self.grid)
 
     def star_points(self):
         if self.size == 9:

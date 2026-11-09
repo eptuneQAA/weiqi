@@ -86,15 +86,22 @@ class GameState:
         return True, ""
 
     def play(self, x, y):
-        ok, err = self.is_legal(x, y)
-        if not ok:
-            return False, err
+        if self.phase != Phase.PLAYING:
+            return False, "当前不能落子"
+        if not self.board.in_bounds(x, y):
+            return False, "落子超出棋盘"
+        if self.board.get(x, y) != EMPTY:
+            return False, "该位置已有棋子"
+        # 只做一次试落：先判自杀/劫争，再替换棋盘，避免原来 is_legal + play 的两次拷贝
         test = self.board.copy()
         ok, err = test.play(x, y, self.turn)
         if not ok:
             return False, err
+        key = test.position_key()
+        if key in self.positions:
+            return False, "劫争：不能重复之前的局面"
         self.board = test
-        self.positions.add(test.position_key())
+        self.positions.add(key)
         self.history.append((self.turn, x, y))
         self.consecutive_passes = 0
         self.turn = opponent(self.turn)
