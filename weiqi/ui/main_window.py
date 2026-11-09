@@ -4,8 +4,9 @@ import os
 from PyQt5.QtCore import Qt, QThread, pyqtSignal
 from PyQt5.QtGui import QFont, QKeySequence
 from PyQt5.QtWidgets import (
-    QAction, QDialog, QFileDialog, QGridLayout, QHBoxLayout, QLabel,
-    QMainWindow, QMessageBox, QPushButton, QVBoxLayout, QWidget,
+    QAction, QDialog, QFileDialog, QFormLayout, QGridLayout, QHBoxLayout,
+    QLabel, QMainWindow, QMessageBox, QPushButton, QStackedWidget,
+    QVBoxLayout, QWidget,
 )
 
 from ..ai.engine import AIEngine
@@ -23,6 +24,8 @@ from .dialogs import (
 )
 from .help_dialog import HelpDialog
 from .settings import SettingsDialog, get as get_setting, set_value
+from .welcome import WelcomeWidget
+from . import theme
 
 MODE_IDLE = "idle"
 MODE_AI = "ai"
@@ -87,58 +90,139 @@ class MainWindow(QMainWindow):
         self._build_ui()
         self._build_menu()
         self._update_ui()
+        self._refresh_recent()
+        self.stack.setFocus()
         self.statusBar().showMessage("请选择：人机对战 / 创建房间 / 加入房间")
 
     def _build_ui(self):
         central = QWidget()
         self.setCentralWidget(central)
         layout = QHBoxLayout(central)
-        layout.setContentsMargins(12, 12, 12, 12)
+        layout.setContentsMargins(14, 12, 14, 12)
+        layout.setSpacing(14)
+
+        self.stack = QStackedWidget()
+        self.welcome = WelcomeWidget()
+        self.welcome.new_game.connect(self._new_ai_game)
+        self.welcome.host_game.connect(self._create_host)
+        self.welcome.join_game.connect(self._join_host)
+        self.welcome.open_sgf.connect(self._open_sgf)
+        self.welcome.open_path.connect(self._open_sgf_path)
         self.board_widget = BoardWidget()
         self.board_widget.point_clicked.connect(self._on_point_clicked)
-        layout.addWidget(self.board_widget, 1)
+        self.stack.addWidget(self.welcome)
+        self.stack.addWidget(self.board_widget)
+        layout.addWidget(self.stack, 1)
+
         side = QWidget()
-        side.setFixedWidth(312)
+        side.setFixedWidth(320)
         side_layout = QVBoxLayout(side)
+        side_layout.setSpacing(8)
         title = QLabel("对局信息")
-        title.setFont(QFont("", 11, QFont.Bold))
+        title.setObjectName("sideTitle")
         side_layout.addWidget(title)
-        self.mode_label = QLabel("模式：未开始")
+
+        self.info_form = QFormLayout()
+        self.info_form.setLabelAlignment(Qt.AlignLeft)
+        self.info_form.setFormAlignment(Qt.AlignLeft | Qt.AlignTop)
+        self.info_form.setHorizontalSpacing(18)
+        self.info_form.setVerticalSpacing(6)
+        self.mode_label = QLabel("未开始")
+        self.board_label = QLabel("—")
+        self.komi_label = QLabel("—")
         self.turn_label = QLabel("—")
-        self.capture_label = QLabel("提子：黑 0 / 白 0")
-        self.move_label = QLabel("手数：0")
-        self.room_label = QLabel("")
+        self.move_label = QLabel("0")
+        self.capture_label = QLabel("黑 0 / 白 0")
+        self.room_label = QLabel("—")
         self.room_label.setWordWrap(True)
+        for caption, widget in (
+            ("模式", self.mode_label),
+            ("棋盘", self.board_label),
+            ("贴目", self.komi_label),
+            ("轮到", self.turn_label),
+            ("手数", self.move_label),
+            ("提子", self.capture_label),
+            ("房间", self.room_label),
+        ):
+            self.info_form.addRow(caption, widget)
+        self.info_panel = QWidget()
+        self.info_panel.setLayout(self.info_form)
+        side_layout.addWidget(self.info_panel)
+        self.idle_hint = QLabel(
+            "还没有开始对局。\n从左侧选择一种模式，或按 Ctrl+N 开始人机对战。"
+        )
+        self.idle_hint.setWordWrap(True)
+        self.idle_hint.setObjectName("welcomeHint")
+        self.idle_hint.setVisible(False)
+        side_layout.addWidget(self.idle_hint)
         self.score_label = QLabel("")
         self.score_label.setWordWrap(True)
-        for widget in (
-            self.mode_label, self.turn_label, self.capture_label,
-            self.move_label, self.room_label, self.score_label,
-        ):
-            side_layout.addWidget(widget)
-        side_layout.addSpacing(8)
+        self.score_label.setObjectName("scoreLabel")
+        side_layout.addWidget(self.score_label)
+        side_layout.addSpacing(4)
+
         grid = QGridLayout()
+        grid.setSpacing(8)
         self.new_button = QPushButton("新对局")
+        self.new_button.setObjectName("primaryButton")
+        self.new_button.setShortcut(QKeySequence.New)
         self.pass_button = QPushButton("停一手")
         self.resign_button = QPushButton("认输")
         self.undo_button = QPushButton("悔棋")
         self.confirm_button = QPushButton("确认数子")
+        self.save_button = QPushButton("保存棋谱")
         self.new_button.clicked.connect(self._new_ai_game)
         self.pass_button.clicked.connect(self._pass)
         self.resign_button.clicked.connect(self._resign)
         self.undo_button.clicked.connect(self._undo)
         self.confirm_button.clicked.connect(self._confirm_score)
-        grid.addWidget(self.new_button, 0, 0)
-        grid.addWidget(self.pass_button, 0, 1)
-        grid.addWidget(self.resign_button, 1, 0)
+        self.save_button.clicked.connect(self._save_sgf)
+        grid.addWidget(self.new_button, 0, 0, 1, 2)
+        grid.addWidget(self.pass_button, 1, 0)
         grid.addWidget(self.undo_button, 1, 1)
-        grid.addWidget(self.confirm_button, 2, 0, 1, 2)
+        grid.addWidget(self.resign_button, 2, 0)
+        grid.addWidget(self.save_button, 2, 1)
+        grid.addWidget(self.confirm_button, 3, 0, 1, 2)
         side_layout.addLayout(grid)
+        side_layout.addStretch(1)
+
         self.chat = ChatWidget()
         self.chat.message_sent.connect(self._send_chat)
         self.chat.setVisible(False)
-        side_layout.addWidget(self.chat, 1)
+        side_layout.addWidget(self.chat)
         layout.addWidget(side)
+
+        self._apply_style()
+
+    def _apply_style(self):
+        self.setStyleSheet(
+            """
+            QLabel#sideTitle { font-size: 15px; font-weight: bold; }
+            QPushButton#primaryButton {
+                background: %(primary)s; color: white; border: none;
+                border-radius: 6px; padding: 9px 14px; font-weight: bold;
+            }
+            QPushButton#primaryButton:hover { background: %(primary_hover)s; }
+            QPushButton#primaryButton:disabled {
+                background: #cfc7b6; color: #f5f1e8;
+            }
+            QPushButton {
+                padding: 7px 10px; border-radius: 5px;
+                border: 1px solid %(border)s; background: #ffffff;
+            }
+            QPushButton:hover { background: %(hover)s; }
+            QPushButton:disabled {
+                color: #a89f8e; background: #f2ede2; border-color: #e6dfd0;
+            }
+            QLabel#scoreLabel { color: %(accent)s; }
+            """ % {
+                "primary": theme.PRIMARY.name(),
+                "primary_hover": theme.PRIMARY_HOVER.name(),
+                "accent": theme.ACCENT.name(),
+                "border": theme.BORDER.name(),
+                "hover": theme.BOARD_LIGHT.name(),
+            }
+        )
 
     def _build_menu(self):
         file_menu = self.menuBar().addMenu("文件")
@@ -545,8 +629,18 @@ class MainWindow(QMainWindow):
             MODE_IDLE: "未开始", MODE_AI: "人机对战",
             MODE_HOST: "主机", MODE_GUEST: "客机", MODE_REVIEW: "复盘",
         }
-        self.mode_label.setText(
-            "模式：{}".format(mode_names.get(self.mode, "未开始"))
+        self.stack.setCurrentWidget(
+            self.welcome if self.mode == MODE_IDLE else self.board_widget
+        )
+        self.info_panel.setVisible(self.mode != MODE_IDLE)
+        self.idle_hint.setVisible(self.mode == MODE_IDLE)
+        self.mode_label.setText(mode_names.get(self.mode, "未开始"))
+        self.board_label.setText(
+            "—" if self.mode == MODE_IDLE else "{} 路".format(self.game.size)
+        )
+        self.komi_label.setText(
+            "—" if self.mode == MODE_IDLE
+            else "{:g}".format(self.game.komi)
         )
         if self.mode == MODE_REVIEW:
             self.turn_label.setText(
@@ -558,28 +652,33 @@ class MainWindow(QMainWindow):
             if self.mode in (MODE_HOST, MODE_GUEST) and not self._is_connected():
                 self.turn_label.setText("等待对手…")
             else:
-                self.turn_label.setText(
-                    "轮到：{}方".format(color_name(self.game.turn))
-                )
+                side = color_name(self.game.turn)
+                if self.mode == MODE_AI:
+                    role = "你" if self.game.turn == self.human_color else "AI"
+                else:
+                    role = "你" if self.game.turn == self.human_color else "对手"
+                self.turn_label.setText("{}（{}方）".format(role, side))
         elif phase == Phase.SCORING:
             self.turn_label.setText("数子阶段")
         else:
             self.turn_label.setText("对局结束")
         captures = self.game.board.captures
         self.capture_label.setText(
-            "提子：黑 {} / 白 {}".format(captures[BLACK], captures[WHITE])
+            "黑 {} / 白 {}".format(captures[BLACK], captures[WHITE])
         )
-        self.move_label.setText("手数：{}".format(self.game.move_count))
+        self.move_label.setText(str(self.game.move_count))
         if self.mode == MODE_HOST and self.server is not None:
             self.room_label.setText(
-                "房间：{}  端口：{}".format(
-                    self.server.room_name, self.server.port
-                )
+                "{} : {}".format(self.server.room_name, self.server.port)
             )
         elif self.mode == MODE_GUEST:
             self.room_label.setText("客机模式")
+        elif self.mode == MODE_AI:
+            self.room_label.setText("本地人机")
+        elif self.mode == MODE_REVIEW:
+            self.room_label.setText("棋谱文件")
         else:
-            self.room_label.setText("")
+            self.room_label.setText("—")
         if phase == Phase.SCORING and self.game.score:
             score = self.game.score
             self.score_label.setText(
@@ -594,6 +693,7 @@ class MainWindow(QMainWindow):
         self.resign_button.setEnabled(self._can_resign())
         self.undo_button.setEnabled(self._can_undo())
         self.confirm_button.setEnabled(marking)
+        self.save_button.setEnabled(bool(self.game.history) or bool(self.game.handicap))
         self.chat.set_enabled(self._chat_available())
         self.pass_action.setEnabled(interactive)
         self.resign_action.setEnabled(self._can_resign())
@@ -843,6 +943,9 @@ class MainWindow(QMainWindow):
         )
         if not path:
             return
+        self._open_sgf_path(path)
+
+    def _open_sgf_path(self, path):
         try:
             game = sgf.load_file(path)
         except (OSError, ValueError) as exc:
@@ -857,12 +960,29 @@ class MainWindow(QMainWindow):
         self.result_shown = True
         set_value("last_dir", os.path.dirname(path))
         self._apply_review()
+        self._refresh_recent()
         self.statusBar().showMessage(
             "复盘：{}（共 {} 手，← → 逐步查看）".format(
                 os.path.basename(path), len(self.review_moves)
             ),
             6000,
         )
+
+    def _refresh_recent(self, limit=5):
+        """扫描上次目录里的 SGF，作为欢迎页的"最近棋谱"。"""
+        directory = self._default_dir()
+        entries = []
+        try:
+            for name in os.listdir(directory):
+                if not name.lower().endswith(".sgf"):
+                    continue
+                full = os.path.join(directory, name)
+                if os.path.isfile(full):
+                    entries.append((os.path.getmtime(full), full))
+        except OSError:
+            entries = []
+        entries.sort(reverse=True)
+        self.welcome.set_recent([path for _mtime, path in entries[:limit]])
 
     def _save_sgf(self):
         if not self.game.history and not self.game.handicap:
@@ -885,6 +1005,7 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "保存失败", str(exc))
             return
         set_value("last_dir", os.path.dirname(path))
+        self._refresh_recent()
         self.statusBar().showMessage("已保存：{}".format(path), 5000)
 
     def _apply_review(self):
